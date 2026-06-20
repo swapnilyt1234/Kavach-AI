@@ -1,0 +1,74 @@
+/* Custom Global Styles for Kavach Web Audio */
+
+/* Base Glassmorphism utility classes */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.6); /* gray-900 */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(55, 65, 81, 0.5); /* gray-700 */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.1);
+}
+
+/* Cyber Security Red Alert Effects */
+.alert-glow-red {
+  box-shadow: 0 0 60px rgba(220, 38, 38, 0.4), inset 0 0 30px rgba(220, 38, 38, 0.15);
+  border-color: rgba(239, 68, 68, 0.8);
+}
+
+.text-alert-red {
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.8), 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+/* Custom Scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030712; 
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937; 
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151; 
+}
+
+/* Global resets for inputs to remove browser default styling */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Fallback animations for animate-in classes in case tailwindcss-animate is missing */
+.animate-in {
+  animation: animate-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
