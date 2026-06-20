@@ -1,57 +1,167 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Animated glitch text layer
+function GlitchText({ text }) {
+    return (
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+            <span style={{
+                position: 'absolute', top: 0, left: 0,
+                color: '#F87171', opacity: 0.7,
+                animation: 'glitch-shift 2.5s infinite linear',
+                userSelect: 'none',
+            }}>{text}</span>
+            <span style={{ position: 'relative', zIndex: 1 }}>{text}</span>
+        </div>
+    );
+}
 
 export default function SecurityOverlay({ visible, probability }) {
-    if (!visible) return null;
+    const confidence = probability ? (probability * 100).toFixed(1) : '98.0';
+    const canvasRef = useRef(null);
 
-    const confidence = probability ? (probability * 100).toFixed(1) : 0;
+    // Animated grid scan canvas
+    useEffect(() => {
+        if (!visible || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let frame;
+        let offset = 0;
+
+        const draw = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(239,68,68,0.08)';
+            ctx.lineWidth = 1;
+            const spacing = 40;
+            for (let x = 0; x < canvas.width; x += spacing) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += spacing) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // Scan line
+            offset = (offset + 1.5) % canvas.height;
+            const grad = ctx.createLinearGradient(0, offset - 60, 0, offset + 60);
+            grad.addColorStop(0, 'transparent');
+            grad.addColorStop(0.5, 'rgba(239,68,68,0.15)');
+            grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, offset - 60, canvas.width, 120);
+
+            frame = requestAnimationFrame(draw);
+        };
+        draw();
+        return () => cancelAnimationFrame(frame);
+    }, [visible]);
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-red-950 via-black to-red-950 p-4 overflow-hidden">
-            {/* Animated Pulse Background */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-[150vw] h-[150vw] md:w-[100vw] md:h-[100vw] bg-red-600 rounded-full opacity-10 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
-            </div>
-            
-            {/* Overlay Content Card */}
-            <div className="relative z-10 w-full max-w-4xl border-4 border-red-600 bg-red-950/80 shadow-[0_0_120px_rgba(220,38,38,0.5)] backdrop-blur-xl rounded-3xl p-10 md:p-16 text-center transform scale-100 animate-in fade-in zoom-in duration-300">
-                
-                {/* Warning Icon */}
-                <div className="flex justify-center mb-8">
-                    <div className="relative">
-                        <div className="absolute -inset-4 bg-red-600 rounded-full blur-xl opacity-60 animate-pulse"></div>
-                        <svg className="relative w-28 h-28 text-red-500 drop-shadow-[0_0_20px_rgba(239,68,68,1)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                </div>
+        <AnimatePresence>
+            {visible && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 200,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(3,0,0,0.92)',
+                        backdropFilter: 'blur(12px)',
+                        animation: 'siren-flash 1s infinite',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {/* Animated grid canvas */}
+                    <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
 
-                <h1 className="text-4xl md:text-6xl font-black text-red-500 tracking-widest mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)] uppercase">
-                    Synthetic Audio Detected
-                </h1>
-                
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-200 mb-10 tracking-wider">
-                    Potential Financial Fraud Attempt
-                </h2>
+                    {/* Scanlines overlay */}
+                    <div style={{
+                        position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
+                        background: 'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.3) 3px, rgba(0,0,0,0.3) 4px)',
+                        animation: 'scanline 4s linear infinite',
+                    }} />
 
-                <div className="inline-block bg-black/50 border border-red-800 rounded-2xl px-10 py-5 mb-10 shadow-inner">
-                    <p className="text-2xl text-red-400 font-mono font-bold tracking-widest uppercase flex items-center justify-center gap-3">
-                        Detected Confidence: 
-                        <span className="text-red-500 text-3xl">{confidence}%</span>
-                    </p>
-                </div>
+                    {/* Radial burst */}
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '200vw', height: '200vw', background: 'radial-gradient(circle, rgba(239,68,68,0.12) 0%, transparent 60%)', pointerEvents: 'none', zIndex: 1, animation: 'pulse-ring 2s ease-out infinite' }} />
 
-                <div className="bg-red-900/40 border-l-8 border-red-600 p-6 md:p-8 text-left rounded-r-xl">
-                    <p className="text-2xl md:text-3xl font-black text-red-100 uppercase tracking-widest animate-pulse">
-                        Financial Access Terminated
-                    </p>
-                    <p className="text-red-200 mt-3 text-lg font-medium leading-relaxed">
-                        All transaction capabilities and session privileges have been immediately revoked. The Kavach Security Network has logged this event for forensic analysis.
-                    </p>
-                </div>
-            </div>
-            
-            {/* Scanlines Effect for Cyber Feel */}
-            <div className="absolute inset-0 pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSJ0cmFuc3BhcmVudCINCi8+CjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjEiIGZpbGw9InJnYmEoMjU1LCAwLCAwLCAwLjA3KSIvPgo8L3N2Zz4=')] opacity-70 z-50"></div>
-        </div>
+                    {/* Main content card */}
+                    <motion.div
+                        initial={{ scale: 0.85, y: 20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                        style={{
+                            position: 'relative', zIndex: 10,
+                            maxWidth: 680, width: '90%',
+                            background: 'rgba(20,4,4,0.85)',
+                            backdropFilter: 'blur(24px)',
+                            border: '2px solid rgba(239,68,68,0.5)',
+                            borderRadius: 24,
+                            padding: '48px 40px',
+                            textAlign: 'center',
+                            boxShadow: '0 0 120px rgba(239,68,68,0.3), inset 0 0 60px rgba(239,68,68,0.05)',
+                        }}
+                    >
+                        {/* Animated lock icon */}
+                        <motion.div
+                            animate={{ rotate: [0, -5, 5, -5, 0] }}
+                            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 1.5 }}
+                            style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}
+                        >
+                            <div style={{ position: 'relative', width: 80, height: 80 }}>
+                                {[1, 2].map(i => (
+                                    <div key={i} style={{ position: 'absolute', inset: -(i * 14), borderRadius: '50%', border: '1px solid rgba(239,68,68,0.2)', animation: `pulse-ring ${1 + i * 0.5}s ease-out infinite`, animationDelay: `${i * 0.3}s` }} />
+                                ))}
+                                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(239,68,68,0.1)', border: '2px solid rgba(239,68,68,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 32px rgba(239,68,68,0.3)' }}>
+                                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                        <line x1="12" y1="8" x2="12" y2="12"/>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        </motion.div>
+
+                        {/* Title */}
+                        <div style={{ fontSize: 'clamp(24px, 5vw, 40px)', fontWeight: 900, color: '#FCA5A5', fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '-0.02em', marginBottom: 12, textShadow: '0 0 40px rgba(239,68,68,0.5)' }}>
+                            <GlitchText text="SYNTHETIC AUDIO DETECTED" />
+                        </div>
+
+                        <p style={{ fontSize: 18, color: '#CBD5E1', fontWeight: 600, marginBottom: 28, fontFamily: "'Space Grotesk', sans-serif" }}>
+                            Potential Financial Fraud Attempt
+                        </p>
+
+                        {/* Confidence bar */}
+                        <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, padding: '16px 24px', marginBottom: 28 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase' }}>Threat Confidence</span>
+                                <span style={{ fontSize: 22, fontWeight: 900, color: '#EF4444', fontFamily: "'JetBrains Mono', monospace' " }}>{confidence}%</span>
+                            </div>
+                            <div style={{ height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${confidence}%` }}
+                                    transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
+                                    style={{ height: '100%', background: 'linear-gradient(90deg, #DC2626, #EF4444)', borderRadius: 3, boxShadow: '0 0 10px rgba(239,68,68,0.6)' }}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Session terminated */}
+                        <div style={{ background: 'rgba(127,29,29,0.3)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, padding: '16px 20px', textAlign: 'left' }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: '#FCA5A5', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6, fontFamily: "'JetBrains Mono', monospace", animation: 'pulse 2s ease-in-out infinite' }}>
+                                ▶ Session Terminated
+                            </div>
+                            <p style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>
+                                All transaction capabilities and session privileges have been immediately revoked. This event has been flagged for forensic analysis by the Kavach Security Network.
+                            </p>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 }

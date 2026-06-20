@@ -1,53 +1,106 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import PaymentForm from './components/PaymentForm';
 import SecurityOverlay from './components/SecurityOverlay';
 import CallPanel from './components/CallPanel';
 import StatusBadge from './components/StatusBadge';
 import { startSecureCall, stopSecureCall } from './webrtc/stream-handler';
+import '../src/index.css';
+
+// ── Telemetry mini-card ─────────────────────────────────────────────────────
+function TelemetryCard({ label, value, unit, color = '#3B82F6' }) {
+    return (
+        <div style={{
+            background: 'rgba(15,23,42,0.7)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 12,
+            padding: '12px 16px',
+        }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color, fontFamily: "'JetBrains Mono', monospace" }}>
+                {value}<span style={{ fontSize: 11, color: '#64748B', marginLeft: 3 }}>{unit}</span>
+            </p>
+        </div>
+    );
+}
+
+// ── Event log item ──────────────────────────────────────────────────────────
+function LogLine({ time, msg, type = 'info' }) {
+    const colors = { info: '#3B82F6', warn: '#F59E0B', threat: '#EF4444', ok: '#10B981' };
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+        >
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: '#475569', flexShrink: 0 }}>[{time}]</span>
+            <span style={{ fontSize: 12, color: colors[type] || '#CBD5E1', fontFamily: "'JetBrains Mono', monospace" }}>{msg}</span>
+        </motion.div>
+    );
+}
+
+function getTime() {
+    return new Date().toLocaleTimeString('en-IN', { hour12: false });
+}
 
 export default function App() {
-    const [locked, setLocked] = useState(false);
-    const [callActive, setCallActive] = useState(false);
+    const [locked, setLocked]           = useState(false);
+    const [callActive, setCallActive]   = useState(false);
     const [probability, setProbability] = useState(0);
     const [rollingScores, setRollingScores] = useState([]);
-    
-    // Use ref to track scores inside the event listener without dependency issues
+    const [logs, setLogs]               = useState([
+        { id: 0, time: getTime(), msg: 'Kavach Security Node initialized', type: 'ok' },
+        { id: 1, time: getTime(), msg: 'WebNN inference engine ready', type: 'info' },
+    ]);
+    const [latency, setLatency]   = useState(12);
+    const [packetInteg, setPacketInteg] = useState(100);
     const rollingScoresRef = useRef([]);
+    const logId = useRef(10);
+
+    const addLog = (msg, type = 'info') => {
+        setLogs(prev => {
+            const next = [...prev, { id: logId.current++, time: getTime(), msg, type }];
+            return next.slice(-20); // keep last 20
+        });
+    };
 
     useEffect(() => {
         const handleDeepfakeScore = (event) => {
             const newScore = event.detail?.probability || 0;
             setProbability(newScore);
-            
+
             const newScores = [...rollingScoresRef.current, newScore];
-            // Keep last 5 scores
-            if (newScores.length > 5) {
-                newScores.shift();
-            }
-            
+            if (newScores.length > 5) newScores.shift();
             rollingScoresRef.current = newScores;
             setRollingScores(newScores);
 
-            // Compute rolling average
+            const pct = (newScore * 100).toFixed(1);
+            const type = newScore > 0.8 ? 'threat' : newScore > 0.4 ? 'warn' : 'ok';
+            addLog(`Deepfake probability: ${pct}%`, type);
+
             const average = newScores.reduce((a, b) => a + b, 0) / newScores.length;
-            
-            // Trigger lockdown if rolling average > 0.85
-            if (average > 0.85) {
-                handleLockdown();
-            }
+            if (average > 0.85) handleLockdown();
         };
 
         window.addEventListener('deepfake-score', handleDeepfakeScore);
-        
-        return () => {
-            window.removeEventListener('deepfake-score', handleDeepfakeScore);
-        };
+        return () => window.removeEventListener('deepfake-score', handleDeepfakeScore);
     }, []);
+
+    // Simulate telemetry fluctuations when call active
+    useEffect(() => {
+        if (!callActive) return;
+        const t = setInterval(() => {
+            setLatency(Math.floor(8 + Math.random() * 18));
+            setPacketInteg(Math.floor(97 + Math.random() * 3));
+        }, 1500);
+        return () => clearInterval(t);
+    }, [callActive]);
 
     const handleLockdown = () => {
         setLocked(true);
         setCallActive(false);
         stopSecureCall();
+        addLog('⚠ SECURITY LOCKDOWN ACTIVATED — Session terminated', 'threat');
     };
 
     const handleStartCall = async () => {
@@ -55,6 +108,8 @@ export default function App() {
         rollingScoresRef.current = [];
         setRollingScores([]);
         setProbability(0);
+        addLog('WebRTC session established', 'ok');
+        addLog('Audio stream intercepted by Kavach AI', 'info');
         await startSecureCall();
     };
 
@@ -64,102 +119,120 @@ export default function App() {
         setRollingScores([]);
         setProbability(0);
         stopSecureCall();
+        addLog('Call terminated by user', 'info');
     };
 
     const handlePaymentSubmit = (data) => {
-        if (locked) {
-            alert('Transaction Blocked: Security Lockdown Active');
-            return;
-        }
+        if (locked) { addLog('Transaction BLOCKED — Security lockdown active', 'threat'); return; }
+        addLog(`Transaction submitted — ₹${data.amount} → ${data.recipient}`, 'ok');
         alert('Transaction Submitted Securely');
     };
 
-    // Use rolling average or current probability for display
-    const averageProbability = rollingScores.length > 0 
-        ? rollingScores.reduce((a, b) => a + b, 0) / rollingScores.length 
+    const avgProbability = rollingScores.length > 0
+        ? rollingScores.reduce((a, b) => a + b, 0) / rollingScores.length
         : 0;
 
+    const riskColor = avgProbability > 0.8 ? '#EF4444' : avgProbability > 0.4 ? '#F59E0B' : '#10B981';
+
     return (
-        <div className="min-h-screen bg-gray-950 text-gray-100 font-sans p-6 md:p-12 relative overflow-x-hidden">
-            {/* Cyber Security Background Effects */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-purple-600 to-red-600"></div>
-            <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-900/10 rounded-full blur-[150px] pointer-events-none"></div>
-            <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-red-900/10 rounded-full blur-[150px] pointer-events-none"></div>
+        <div style={{ minHeight: '100vh', background: '#030712', color: '#F8FAFC', fontFamily: "'Inter', sans-serif", position: 'relative', overflowX: 'hidden' }}>
 
-            <SecurityOverlay visible={locked} probability={averageProbability} />
+            {/* ── Ambient glow ── */}
+            <div style={{ position: 'fixed', top: '-20%', left: '-10%', width: '55%', height: '55%', background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+            <div style={{ position: 'fixed', bottom: '-20%', right: '-10%', width: '55%', height: '55%', background: `radial-gradient(circle, rgba(239,68,68,0.05) 0%, transparent 70%)`, pointerEvents: 'none', zIndex: 0 }} />
 
-            {/* Top Navbar */}
-            <header className="max-w-6xl mx-auto mb-16 flex items-center justify-between relative z-10 border-b border-gray-800 pb-6">
-                <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl flex items-center justify-center text-white font-black text-3xl shadow-[0_0_25px_rgba(59,130,246,0.3)] border border-blue-400/20">
-                        K
+            {/* ── Security Overlay ── */}
+            <SecurityOverlay visible={locked} probability={avgProbability} />
+
+            {/* ── Top stripe ── */}
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, #1D4ED8 0%, #06B6D4 50%, #1D4ED8 100%)', backgroundSize: '200% 100%', zIndex: 50 }} />
+
+            {/* ── Navbar ── */}
+            <header style={{ position: 'sticky', top: 0, zIndex: 40, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(3,7,18,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {/* Logo */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #1D4ED8, #0891B2)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 20px rgba(59,130,246,0.4)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', fontFamily: "'Space Grotesk', sans-serif", background: 'linear-gradient(135deg, #F8FAFC 0%, #94A3B8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>KAVACH</div>
+                            <div style={{ fontSize: 10, color: '#06B6D4', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.15em', marginTop: -2 }}>AI AUDIO SHIELD</div>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300">
-                            Kavach Web Audio
-                        </h1>
-                        <p className="text-sm text-blue-400 font-mono tracking-widest uppercase mt-1 flex items-center gap-2">
-                            <span>Enterprise Security Node</span>
-                            <span className="w-1 h-1 bg-blue-400 rounded-full"></span>
-                            <span className="text-gray-500">v2.4.1</span>
-                        </p>
+
+                    {/* Telemetry row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+                        {callActive && (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', gap: 16 }}>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: 10, color: '#64748B', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Latency</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#06B6D4', fontFamily: "'JetBrains Mono', monospace" }}>{latency}ms</div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: 10, color: '#64748B', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Integrity</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#10B981', fontFamily: "'JetBrains Mono', monospace" }}>{packetInteg}%</div>
+                                </div>
+                            </motion.div>
+                        )}
+                        {/* Live pill */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 100, padding: '6px 14px' }}>
+                            <div style={{ position: 'relative', width: 8, height: 8 }}>
+                                <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: locked ? '#EF4444' : '#10B981', animation: 'pulse-ring 1.5s ease-out infinite', display: 'block' }} />
+                                <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: locked ? '#EF4444' : '#10B981', display: 'block' }} />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: locked ? '#EF4444' : '#10B981', letterSpacing: '0.08em' }}>
+                                {locked ? 'LOCKDOWN' : 'SHIELD ACTIVE'}
+                            </span>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-3 bg-gray-900/80 px-6 py-3 rounded-2xl border border-gray-800 shadow-inner">
-                    <div className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                    </div>
-                    <span className="text-sm font-bold text-gray-300 tracking-wider">SYSTEM ACTIVE</span>
                 </div>
             </header>
 
-            {/* Main Dashboard */}
-            <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 relative z-10">
-                
-                {/* Left Column */}
-                <div className="lg:col-span-5 flex flex-col gap-8">
-                    <div>
-                        <CallPanel 
-                            callActive={callActive}
-                            onStart={handleStartCall}
-                            onEnd={handleEndCall}
-                            locked={locked}
-                        />
-                    </div>
-                    
-                    <div className="bg-gray-900/50 backdrop-blur-xl border border-gray-800/80 p-8 rounded-[2rem] shadow-2xl flex flex-col items-center justify-center h-full min-h-[200px]">
-                        <div className="w-full flex items-center justify-between mb-8 border-b border-gray-800 pb-3">
-                            <h3 className="text-gray-400 font-mono text-sm tracking-widest">ANALYSIS STATUS</h3>
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                        </div>
-                        
-                        {callActive ? (
-                            <div className="transform scale-110">
-                                <StatusBadge 
-                                    probability={probability} 
-                                    isFake={probability > 0.5} 
-                                />
-                            </div>
-                        ) : (
-                            <div className="text-gray-500 font-mono text-sm border border-gray-800/50 px-6 py-4 rounded-xl bg-black/30 flex items-center gap-3">
-                                <div className="w-2 h-2 bg-gray-600 rounded-full animate-pulse"></div>
-                                WAITING FOR AUDIO STREAM
-                            </div>
-                        )}
-                    </div>
+            {/* ── Main Content ── */}
+            <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px', position: 'relative', zIndex: 1 }}>
+
+                {/* Telemetry row */}
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                    style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
+                    <TelemetryCard label="Model"    value="WebNN" unit="NPU" color="#06B6D4" />
+                    <TelemetryCard label="Risk Score" value={callActive ? (avgProbability * 100).toFixed(0) : '--'} unit="%" color={riskColor} />
+                    <TelemetryCard label="Buffer"   value="500"   unit="ms" color="#8B5CF6" />
+                    <TelemetryCard label="Mel Bands" value="64"   unit="bands" color="#3B82F6" />
+                </motion.div>
+
+                {/* 2-col grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+
+                    {/* ── LEFT: Security Panel ── */}
+                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <CallPanel callActive={callActive} onStart={handleStartCall} onEnd={handleEndCall} locked={locked} />
+                        <StatusBadge probability={probability} isFake={probability > 0.5} callActive={callActive} />
+                    </motion.div>
+
+                    {/* ── RIGHT: Payment ── */}
+                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 }}>
+                        <PaymentForm locked={locked} onSend={handlePaymentSubmit} />
+                    </motion.div>
                 </div>
 
-                {/* Right Column */}
-                <div className="lg:col-span-7 flex justify-center items-center">
-                    <div className="w-full">
-                        <PaymentForm 
-                            locked={locked} 
-                            onSend={handlePaymentSubmit} 
-                        />
+                {/* ── Event Log ── */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                    style={{ marginTop: 28, background: 'rgba(3,7,18,0.9)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '20px 24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: '#475569', textTransform: 'uppercase', fontFamily: "'JetBrains Mono', monospace" }}>Live Event Log</span>
+                        </div>
+                        <span style={{ fontSize: 10, color: '#334155', fontFamily: "'JetBrains Mono', monospace" }}>KAVACH-NODE-01</span>
                     </div>
-                </div>
-                
+                    <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {logs.slice().reverse().map(l => <LogLine key={l.id} time={l.time} msg={l.msg} type={l.type} />)}
+                    </div>
+                </motion.div>
             </main>
         </div>
     );

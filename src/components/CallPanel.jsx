@@ -1,63 +1,163 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
+
+// ── Animated EQ Bars ────────────────────────────────────────────────────────
+function EQBars({ active, color = '#3B82F6', count = 12 }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 32 }}>
+            {Array.from({ length: count }).map((_, i) => (
+                <div key={i} style={{
+                    width: 3,
+                    height: '100%',
+                    borderRadius: 2,
+                    background: color,
+                    transformOrigin: 'bottom',
+                    transform: 'scaleY(0.15)',
+                    opacity: active ? 1 : 0.2,
+                    animation: active ? `eq-bar ${0.5 + Math.random() * 0.7}s ease-in-out infinite alternate` : 'none',
+                    animationDelay: `${i * 0.07}s`,
+                    '--dur': `${0.5 + Math.random() * 0.7}s`,
+                }} />
+            ))}
+        </div>
+    );
+}
+
+// ── Pulse ring around mic icon ───────────────────────────────────────────────
+function PulseRings({ active }) {
+    if (!active) return null;
+    return (
+        <>
+            {[1, 2, 3].map(i => (
+                <div key={i} style={{
+                    position: 'absolute', inset: -(i * 12),
+                    borderRadius: '50%',
+                    border: '1px solid rgba(59,130,246,0.3)',
+                    animation: `pulse-ring ${1 + i * 0.4}s ease-out infinite`,
+                    animationDelay: `${i * 0.3}s`,
+                    pointerEvents: 'none',
+                }} />
+            ))}
+        </>
+    );
+}
 
 export default function CallPanel({ callActive, onStart, onEnd, locked }) {
     const handleSimulateAttack = () => {
-        window.dispatchEvent(
-            new CustomEvent("deepfake-score", {
-                detail: {
-                    probability: 0.98
-                }
-            })
-        );
+        window.dispatchEvent(new CustomEvent("deepfake-score", { detail: { probability: 0.98 } }));
     };
 
     return (
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 relative overflow-hidden">
-            <div className="flex justify-between items-center mb-6 relative z-10">
+        <div style={{ background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20, padding: 24, position: 'relative', overflow: 'hidden' }}>
+
+            {/* Shield active ring */}
+            {callActive && (
+                <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: '50%', border: '1px solid rgba(59,130,246,0.15)', animation: 'shield-rotate 8s linear infinite', pointerEvents: 'none' }} />
+            )}
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-1">Secure Support Line</h2>
-                    <p className="text-gray-500 text-sm">WebRTC Encrypted Connection</p>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', fontFamily: "'Space Grotesk', sans-serif" }}>Secure Support Line</div>
+                    <div style={{ fontSize: 11, color: '#475569', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em', marginTop: 2 }}>WebRTC E2E Encrypted</div>
                 </div>
-                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                {/* Mic icon with pulse */}
+                <div style={{ position: 'relative', width: 44, height: 44 }}>
+                    <PulseRings active={callActive} />
+                    <div style={{
+                        width: 44, height: 44, borderRadius: '50%',
+                        background: callActive ? 'rgba(59,130,246,0.15)' : 'rgba(30,41,59,0.8)',
+                        border: `1px solid ${callActive ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.3s ease',
+                        boxShadow: callActive ? '0 0 20px rgba(59,130,246,0.25)' : 'none',
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={callActive ? '#3B82F6' : '#64748B'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-6 relative z-10">
+            {/* Audio EQ Visualizer */}
+            <div style={{ background: 'rgba(3,7,18,0.5)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 10, color: '#475569', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0 }}>
+                    {callActive ? 'Live Audio' : 'Standby'}
+                </div>
+                <EQBars active={callActive} color={callActive ? '#06B6D4' : '#1E293B'} />
+            </div>
+
+            {/* Call buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {!callActive ? (
-                    <button 
+                    <motion.button
                         onClick={onStart}
                         disabled={locked}
-                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md flex justify-center items-center gap-2 transform hover:-translate-y-0.5 disabled:transform-none"
+                        whileHover={{ scale: locked ? 1 : 1.02 }}
+                        whileTap={{ scale: locked ? 1 : 0.98 }}
+                        style={{
+                            width: '100%', padding: '14px', borderRadius: 12,
+                            background: locked ? '#1E293B' : 'linear-gradient(135deg, #059669, #0D9488)',
+                            color: locked ? '#475569' : '#fff',
+                            fontWeight: 700, fontSize: 14, border: 'none', cursor: locked ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            boxShadow: locked ? 'none' : '0 0 24px rgba(5,150,105,0.3)',
+                            transition: 'all 0.2s ease',
+                        }}
                     >
-                        <span>📞</span> Start Secure Call
-                    </button>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.17 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                        </svg>
+                        Start Secure Call
+                    </motion.button>
                 ) : (
-                    <button 
+                    <motion.button
                         onClick={onEnd}
-                        disabled={locked}
-                        className="flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl transition duration-200 shadow-md flex justify-center items-center gap-2 transform hover:-translate-y-0.5 disabled:transform-none"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        style={{
+                            width: '100%', padding: '14px', borderRadius: 12,
+                            background: 'linear-gradient(135deg, #DC2626, #B91C1C)',
+                            color: '#fff', fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                            boxShadow: '0 0 24px rgba(220,38,38,0.3)',
+                        }}
                     >
-                        <span>📞</span> End Call
-                    </button>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 014.5 12a19.79 19.79 0 01-3.07-8.67A2 2 0 013.4 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L7.19 8.91"/>
+                            <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                        End Call
+                    </motion.button>
                 )}
-            </div>
-            
-            {/* Simulate Deepfake Attack Section */}
-            <div className="mt-4 pt-6 border-t border-gray-100 relative z-10">
-                <button 
+
+                {/* Simulate attack */}
+                <motion.button
                     onClick={handleSimulateAttack}
                     disabled={locked || !callActive}
-                    className="w-full bg-purple-100 hover:bg-purple-200 text-purple-800 disabled:opacity-50 disabled:cursor-not-allowed font-bold py-3 px-6 rounded-xl transition duration-200 border border-purple-200 flex justify-center items-center gap-2 group"
+                    whileHover={{ scale: (!locked && callActive) ? 1.02 : 1 }}
+                    whileTap={{ scale: (!locked && callActive) ? 0.98 : 1 }}
+                    style={{
+                        width: '100%', padding: '12px', borderRadius: 12,
+                        background: (!locked && callActive) ? 'rgba(124,58,237,0.1)' : 'rgba(30,41,59,0.5)',
+                        color: (!locked && callActive) ? '#A78BFA' : '#334155',
+                        fontWeight: 700, fontSize: 13, cursor: (!locked && callActive) ? 'pointer' : 'not-allowed',
+                        border: `1px solid ${(!locked && callActive) ? 'rgba(124,58,237,0.3)' : 'rgba(255,255,255,0.04)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        transition: 'all 0.2s ease',
+                    }}
                 >
-                    <svg className="w-5 h-5 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
                     Simulate Deepfake Attack
-                </button>
-                {!callActive && <p className="text-xs text-center text-gray-400 mt-2 font-medium">Start a call to enable simulation</p>}
+                </motion.button>
+
+                {!callActive && <p style={{ fontSize: 11, color: '#334155', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace" }}>Start a call to enable simulation</p>}
             </div>
-            
-            {/* Background decoration */}
-            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-gray-50 rounded-full opacity-50 z-0"></div>
         </div>
     );
 }
