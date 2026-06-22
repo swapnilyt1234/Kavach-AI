@@ -14,8 +14,8 @@ class PCMProcessor extends AudioWorkletProcessor {
     // sample rate = 16000, window = 500ms, buffer size = 8000 samples
     this.bufferSize = 8000;
     
-    // Overlap of 25% to improve temporal continuity
-    this.overlapSize = Math.floor(this.bufferSize * 0.25);
+    // No overlap for main-thread buffer concatenation continuity
+    this.overlapSize = 0;
     
     // Internal buffer for Float32 accumulation
     this.buffer = new Float32Array(this.bufferSize);
@@ -68,11 +68,13 @@ class PCMProcessor extends AudioWorkletProcessor {
       pcm16Buffer[i] = sample > 0 ? sample * 32767 : sample * 32768;
     }
 
-    // Send to main thread
-    this.port.postMessage({
-      type: "pcm-chunk",
-      payload: pcm16Buffer
-    });
+    // Send to main thread.
+    // Transfer the underlying ArrayBuffer for zero-copy and Safari compatibility.
+    // Using transfer avoids "Message data must be a dictionary" on Safari AudioWorklet.
+    this.port.postMessage(
+      { type: "pcm-chunk", payload: pcm16Buffer },
+      [pcm16Buffer.buffer]
+    );
 
     // After sending: Keep overlap buffer of last 25% samples
     const startOfOverlap = this.bufferSize - this.overlapSize;

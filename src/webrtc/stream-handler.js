@@ -1,4 +1,4 @@
-import { handlePCMChunk } from '../ai/model-runner.js';
+import { handlePCMChunk, initModel } from '../ai/model-runner.js';
 
 let localStream = null;
 let remoteStream = null;
@@ -11,8 +11,15 @@ let workletNode = null;
 
 export async function startSecureCall(onRemoteStream) {
     try {
-        // 3. Capture microphone
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // 3. Capture microphone with raw constraints (no echo cancellation or noise suppression)
+        // to prevent browser processing from distorting voice characteristics for the neural network.
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
 
         // 4. Create peer connections for loopback
         localPeerConnection = new RTCPeerConnection();
@@ -36,6 +43,9 @@ export async function startSecureCall(onRemoteStream) {
             remoteStream.addTrack(event.track);
 
             if (!audioContext) {
+                // Initialize the ONNX model FIRST before the worklet fires
+                await initModel();
+
                 audioContext = new AudioContext({ sampleRate: 16000 });
                 
                 // 8. Load AudioWorklet
@@ -45,13 +55,14 @@ export async function startSecureCall(onRemoteStream) {
                 workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
                 
                 // 11. Listen to worklet messages
+                // pcm-processor.js sends: { type: 'pcm-chunk', payload: Int16Array }
                 workletNode.port.onmessage = (event) => {
                     const message = event.data;
                     if (message && message.type === 'pcm-chunk') {
                         if (typeof handlePCMChunk === 'function') {
-                            // Extract data/chunk depending on payload shape, fallback to full message
-                            const data = message.chunk || message.data || message;
-                            handlePCMChunk(data);
+                            // Read .payload (the field pcm-processor actually uses)
+                            const data = message.payload || message.chunk || message.data;
+                            if (data) handlePCMChunk(data);
                         }
                     }
                 };
