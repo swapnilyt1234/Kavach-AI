@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.jpg" alt="Kavach AI Logo" width="150" height="150" style="border-radius: 20px;" />
+  <img src="./assets/logo.jpg" alt="Kavach AI Logo" width="150" height="150" style="border-radius: 20px;" />
   
   # Kavach AI
   **Real-Time Explainable Voice Scam Detection & Adaptive Payment Protection**
@@ -152,11 +152,11 @@ kavachai/
 <table align="center" width="100%">
   <tr>
     <td width="50%" align="center">
-      <img src="assets/screenshots/landing-page.png" width="100%" alt="Landing Page">
+      <img src="./assets/screenshots/landing-page.png" width="100%" alt="Landing Page">
       <br><i>Landing Page</i>
     </td>
     <td width="50%" align="center">
-      <img src="assets/screenshots/dashboard.png" width="100%" alt="Main Dashboard">
+      <img src="./assets/screenshots/dashboard.png" width="100%" alt="Main Dashboard">
       <br><i>Main Dashboard</i>
     </td>
   </tr>
@@ -167,27 +167,27 @@ kavachai/
 <summary><b>🛡 Progressive Payment Protection</b></summary>
 <br>
 <p align="center">
-  <img src="assets/screenshots/payment-safe.png" width="48%" alt="Safe Payment">
+  <img src="./assets/screenshots/payment-safe.png" width="48%" alt="Safe Payment">
   <br><i><b>Risk 0–20:</b> Safe Payment Success</i>
 </p>
 <table align="center" width="100%">
   <tr>
     <td width="50%" align="center">
-      <img src="assets/screenshots/payment-warning.png" width="95%" alt="Warning Banner">
+      <img src="./assets/screenshots/payment-warning.png" width="95%" alt="Warning Banner">
       <br><i><b>Risk 20–50:</b> Subtle Warning Banner</i>
     </td>
     <td width="50%" align="center">
-      <img src="assets/screenshots/warning-dialog.png" width="95%" alt="Warning Dialog">
+      <img src="./assets/screenshots/warning-dialog.png" width="95%" alt="Warning Dialog">
       <br><i><b>Risk 50–70:</b> Warning Dialog</i>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="assets/screenshots/high-risk-confirmation.png" width="95%" alt="High-Risk Confirmation">
+      <img src="./assets/screenshots/high-risk-confirmation.png" width="95%" alt="High-Risk Confirmation">
       <br><i><b>Risk 70–90:</b> High-Risk Confirmation (Requires Checkbox)</i>
     </td>
     <td width="50%" align="center">
-      <img src="assets/screenshots/transaction-blocked.png" width="95%" alt="Transaction Blocked">
+      <img src="./assets/screenshots/transaction-blocked.png" width="95%" alt="Transaction Blocked">
       <br><i><b>Risk 90–100:</b> Complete Transaction Block</i>
     </td>
   </tr>
@@ -198,7 +198,7 @@ kavachai/
 <summary><b>📄 Explainable AI</b></summary>
 <br>
 <p align="center">
-  <img src="assets/screenshots/investigation-report.png" width="100%" alt="AI Investigation Report">
+  <img src="./assets/screenshots/investigation-report.png" width="100%" alt="AI Investigation Report">
   <br><br>
   <i>Every AI decision is fully explainable through the generated Investigation Report, detailing exactly which deterministic rules and contextual indicators triggered the intervention.</i>
 </p>
