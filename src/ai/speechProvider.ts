@@ -32,7 +32,7 @@ export class SpeechProvider {
         this.setState('Connecting');
 
         // Determine WS URL based on current host if not local, but we know backend is 3001
-        const wsUrl = `ws://localhost:3000/ws/speech`;
+        const wsUrl = `wss://kavachai-backend-44254233486.us-central1.run.app/ws/speech`;
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = async () => {
